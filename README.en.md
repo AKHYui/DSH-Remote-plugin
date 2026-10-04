@@ -194,7 +194,7 @@ npm test                         # same thing (zero dependencies, no npm install
 | `test/` | 8 test files, 149 cases |
 | `tools/simulate.mjs` | Runs the real plugin against a real relay through a stub context (integration without DSH) |
 | `tools/fake-ctx.mjs` | Stub `ctx` and WebSocket stand-in used by the tests and the simulator |
-| `docs/PROTOCOL.md` | Wire protocol, frame types and the op contract |
+| [`docs/PROTOCOL.md`](docs/PROTOCOL.md) | Wire protocol, frame types and the op contract |
 | `cordis.patch.yml` | The patch layer the package ships: inserts the plugin entry into the profile; your profile patch overrides its config |
 
 ## Related repositories

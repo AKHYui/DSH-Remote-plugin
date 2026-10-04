@@ -194,7 +194,7 @@ npm test                         # 等价（零依赖，无需 npm install）
 | `test/` | 8 个测试文件，149 个用例 |
 | `tools/simulate.mjs` | 用桩上下文把真实插件挂到真实中继上（脱离 DSH 联调 / 验收） |
 | `tools/fake-ctx.mjs` | 桩 `ctx` 与 WebSocket 替身，供测试与模拟器使用 |
-| `docs/PROTOCOL.md` | 线协议、帧类型与 op 契约 |
+| [docs/PROTOCOL.md](docs/PROTOCOL.md) | 线协议、帧类型与 op 契约 |
 | `cordis.patch.yml` | 包自带的 patch 层：把插件条目插入 profile，配置由你的 profile patch 覆盖 |
 
 ## 相关仓库
