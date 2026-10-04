@@ -1,0 +1,40 @@
+{
+  "name": "dsh-remote-bridge",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness plugin: an outbound bridge to a self-hosted relay so a mobile app can drive the desktop harness.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./protocol": "./src/protocol.js",
+    "./bridge": "./src/bridge.js",
+    "./config": "./src/config.js",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "files": [
+    "src/",
+    "tools/",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "simulate": "node tools/simulate.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "remote",
+    "mobile",
+    "relay"
+  ],
+  "license": "MIT"
+}

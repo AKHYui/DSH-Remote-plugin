@@ -1,0 +1,15 @@
+# Node
+node_modules/
+npm-debug.log*
+*.log
+
+# The plugin's opt-in diagnostic log, when `debugLog` points at this directory
+plugin-debug.log
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+Desktop.ini

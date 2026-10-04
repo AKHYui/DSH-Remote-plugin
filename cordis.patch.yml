@@ -1,0 +1,31 @@
+# Patch layer contributed by the dsh-remote-bridge bundle.
+#
+# Edit the values below in place, or override any key with the matching
+# DSH_REMOTE_BRIDGE_* environment variable (see plugin/README.md).
+#
+# connectorToken is a secret: prefer the environment variable so the token never
+# lands in a file you might share.
+- insert:
+    - id: remote-bridge
+      name: dsh-remote-bridge
+      config:
+        serverUrl: ''
+        connectorToken: ''
+        deviceId: ''
+        deviceName: ''
+        autoConnect: true
+        reconnect: true
+        reconnectOnReplaced: false
+        heartbeatMs: 30000
+        approvalTimeoutMs: 90000
+        allowedSessions: []
+        # Archived Sessions are dropped from `session.list` before the phone sees
+        # them: the phone cannot restore one, and listed as ordinary rows they were
+        # indistinguishable from live conversations. Set false to list them again —
+        # this is profile config, so it applies in seconds without restarting DSH.
+        hideArchivedSessions: true
+        # Path to a PEM file holding the CA that signed the relay's certificate.
+        # Needed for a self-hosted relay with an internal CA.
+        tlsCaFile: ''
+        allowInsecure: false
+        logLevel: info
