@@ -99,7 +99,9 @@ test('frame builders produce the documented shapes', () => {
 test('the op allowlist and the op table agree', () => {
   // Namespaces a phone may reach. Listed explicitly so the "no arbitrary
   // namespace/method pair" property survives the table growing beyond `session`.
-  const ALLOWED_NAMESPACES = new Set(['session', 'userQuestions', 'fileUploads']);
+  // `workspace` is here only for the two archive calls: the registry owns the
+  // archived set, so the list has to read it and the phone has to write it.
+  const ALLOWED_NAMESPACES = new Set(['session', 'userQuestions', 'fileUploads', 'workspace']);
 
   for (const op of Object.keys(OP_TABLE)) {
     assert.ok(ALLOWED_OPS.has(op), `${op} must be in ALLOWED_OPS`);

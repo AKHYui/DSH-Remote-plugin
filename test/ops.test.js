@@ -86,6 +86,11 @@ const REMOTE_DESCRIPTORS = {
   'userQuestions.answer': ['agentId', 'callId', 'answer'],
   'fileUploads.upload': ['agentId', 'request'],
   'session.modelCatalog': [],
+  // Archiving is a Workspace-registry operation, not a Session one — a Session
+  // cannot archive itself. `archiveSession` also declares an optional
+  // `stopActivity`, which is why a plain archive call declares only the request.
+  'workspace.archiveSession': ['request'],
+  'workspace.unarchiveSession': ['request'],
   // Not forwarded by the relay, but read by `session.list` to learn which
   // Sessions the desktop archived. It declares no parameters.
   'workspace.follow': [],

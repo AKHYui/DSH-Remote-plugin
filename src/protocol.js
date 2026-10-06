@@ -79,6 +79,26 @@ export const OP_TABLE = Object.freeze({
     wires: ['agentId', 'callId', 'answer'],
   },
   'model.catalog': { namespace: 'session', method: 'modelCatalog' },
+  // Archiving is a **Workspace registry** operation, not a session one: a session
+  // cannot archive itself, and there is no `session.archive`. That registry is also
+  // the only thing that knows which Sessions `session.list` is hiding, which is why
+  // the list has to read `workspace.follow` to find them.
+  //
+  // `archiveSession` takes `{sessionId, stopActivity?}`. Without `stopActivity` it
+  // *refuses* a Session with running work (`workspace/session-active`, with the work
+  // listed in `details`) — which is what lets the phone ask before it kills a turn
+  // instead of guessing. `unarchiveSession` takes `{sessionId}` and answers the
+  // updated set as `{archivedSessionIds}`.
+  'workspace.archiveSession': {
+    namespace: 'workspace',
+    method: 'archiveSession',
+    param: 'request',
+  },
+  'workspace.unarchiveSession': {
+    namespace: 'workspace',
+    method: 'unarchiveSession',
+    param: 'request',
+  },
   // Stages one generic file for a later prompt. Two wire parameters, and the
   // request is `{ data, name? }` where `data` is **base64 of the raw bytes**
   // (`@deepseek-ai/dsh-client-file-upload/lib/client.js:193-196` does
