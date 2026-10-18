@@ -162,6 +162,7 @@ Boolean keys accept `1/true/yes/on` and `0/false/no/off` (case-insensitive); `al
 | Close code `4400`: protocol version mismatch | The plugin and relay disagree on the wire protocol → upgrade both; do not relax validation to get around it |
 | Reconnects in a fixed ~30s cycle | The relay treats the plugin's `ping` as an invalid frame (older relays only accepted one-way heartbeats) → upgrade the relay |
 | `tlsCaFile` is set but the link still fails | That PEM is not the CA that signed the relay certificate, or the DSH process cannot read it. Verify the path; the fallback is `NODE_EXTRA_CA_CERTS=<PEM>` plus a DSH restart |
+| Listing sessions on the phone reports `remote_error: Cannot read properties of undefined (reading 'signal')` | DSH 0.2 turned `typertGateway.invoke`/`stream` into the wire gateway, which requires a `PeerScope` on every call; older plugin builds send none. Upgrade the plugin and restart DSH |
 | `src/` changed but the behaviour did not | DSH must be restarted (see Deployment step 4) |
 | The `debugLog` file stays empty | The path is not writable by the DSH process, or `debugLog` is unset; write failures are silent |
 | The phone still lists archived sessions | `hideArchivedSessions` is `false`, the plugin is an older build (restart DSH), or the phone's task list has not refreshed yet (reopening the drawer refreshes it) |
@@ -172,7 +173,7 @@ Boolean keys accept `1/true/yes/on` and `0/false/no/off` (case-insensitive); `al
 
 ```bash
 cd /opt/dsh-remote-bridge
-node --test                      # 149 cases across 8 test files
+node --test                      # 155 cases across 8 test files
 node --test test/ops.test.js     # a single file
 npm test                         # same thing (zero dependencies, no npm install needed)
 ```
@@ -191,7 +192,7 @@ npm test                         # same thing (zero dependencies, no npm install
 | `src/desktop-withdraw.js` | Settles the desktop's pending request when the phone answers first, so the desktop prompt closes itself |
 | `src/config.js` | Config resolution and validation (profile `config:` + `DSH_REMOTE_BRIDGE_*`) |
 | `src/log.js`, `src/debug-log.js` | Levelled console logging; optional diagnostic file log |
-| `test/` | 8 test files, 149 cases |
+| `test/` | 8 test files, 155 cases |
 | `tools/simulate.mjs` | Runs the real plugin against a real relay through a stub context (integration without DSH) |
 | `tools/fake-ctx.mjs` | Stub `ctx` and WebSocket stand-in used by the tests and the simulator |
 | [`docs/PROTOCOL.md`](docs/PROTOCOL.md) | Wire protocol, frame types and the op contract |

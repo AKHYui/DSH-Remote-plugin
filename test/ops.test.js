@@ -19,10 +19,14 @@ function makeConfig(overrides = {}) {
   ).config;
 }
 
-function makeOps({ ops = {}, streams = {}, config = makeConfig(), harness = {} } = {}) {
+function makeOps({ ops = {}, streams = {}, config = makeConfig(), harness = {}, connection = null } = {}) {
   const fake = createFakeCtx({ ops, streams });
   const log = createMemoryLogger();
-  return { ops: createOps({ gateway: fake.ctx.typertGateway, config, log, harness }), fake, log };
+  return {
+    ops: createOps({ gateway: fake.ctx.typertGateway, config, log, harness, connection }),
+    fake,
+    log,
+  };
 }
 
 test('targetedSessionId understands both sessionId and address shapes', () => {
@@ -440,5 +444,148 @@ test('a control key does not disturb ordinary request parameters', async () => {
 test('harness.info reports the archived policy', async () => {
   const { ops } = makeOps({ harness: {} });
   assert.equal((await ops.run('harness.info')).hideArchivedSessions, true);
+});
+
+// -- DSH 0.2 gateway contract ------------------------------------------------
+//
+// The gateway used to be a direct Host API. In 0.2 every `invoke`/`stream`
+// request must name an in-process Peer; without it the dispatch reads
+// `peer.signal` off `undefined` and the phone sees
+// `remote_error: Cannot read properties of undefined (reading 'signal')`.
+
+function makeConnection() {
+  const created = [];
+  const connection = {
+    createPeer(options) {
+      const controller = new AbortController();
+      const peer = {
+        options,
+        principal: options.principal,
+        interactions: options.interactions,
+        signal: controller.signal,
+        disposed: false,
+        dispose() {
+          this.disposed = true;
+          controller.abort(new Error('peer disposed'));
+        },
+      };
+      created.push(peer);
+      return peer;
+    },
+  };
+  return { connection, created };
+}
+
+/** A gateway that enforces the 0.2 contract on every call. */
+function strictGateway({ ops = {}, streams = {} } = {}) {
+  const calls = [];
+  function accept(request) {
+    // This is the same dereference the live gateway performs in
+    // `assertPeerLive(peer, endpoint)` before any Remote is dispatched.
+    assert.ok(request.peer, 'the request must name a Peer');
+    assert.ok(request.peer.signal instanceof AbortSignal, 'the Peer must expose a signal');
+    assert.equal(request.peer.principal?.kind, 'owner');
+    calls.push(request);
+  }
+  return {
+    calls,
+    async invoke(request) {
+      accept(request);
+      const handler = ops[`${request.namespace}.${request.method}`];
+      if (!handler) throw new Error(`no Remote ${request.namespace}.${request.method}`);
+      return handler(request.args ?? {}, request);
+    },
+    async stream(request) {
+      accept(request);
+      const handler = streams[`${request.namespace}.${request.method}`];
+      if (!handler) throw new Error(`no streaming Remote ${request.namespace}.${request.method}`);
+      return handler(request.args ?? {}, request);
+    },
+  };
+}
+
+test('every gateway call names one owner Peer under the 0.2 contract', async () => {
+  const { connection, created } = makeConnection();
+  const gateway = strictGateway({
+    ops: { 'session.list': () => ({ items: [{ sessionId: 's1' }] }) },
+    streams: { 'workspace.follow': workspaceFeed([]) },
+  });
+  const ops = createOps({ gateway, config: makeConfig(), log: createMemoryLogger(), connection });
+
+  const value = await ops.run('session.list', {});
+
+  assert.deepEqual(value.items, [{ sessionId: 's1' }]);
+  assert.equal(created.length, 1, 'one Peer per bridge, not one per call');
+  assert.equal(gateway.calls.length, 2, 'the list and its archived-set read both carry it');
+  assert.equal(gateway.calls[0].peer, created[0]);
+  assert.equal(gateway.calls[1].peer, created[0]);
+  assert.deepEqual(created[0].options, { principal: { kind: 'owner' }, interactions: 'none' });
+});
+
+test('a stream request names the Peer too', async () => {
+  const { connection } = makeConnection();
+  const gateway = strictGateway({
+    streams: { 'session.follow': async function* () { yield { seq: 1 }; } },
+  });
+  const ops = createOps({ gateway, config: makeConfig(), log: createMemoryLogger(), connection });
+
+  const collected = [];
+  for await (const chunk of await ops.openStream('session.follow', {})) collected.push(chunk);
+
+  assert.deepEqual(collected, [{ seq: 1 }]);
+  assert.ok(gateway.calls[0].peer);
+});
+
+test('a disposed Peer is replaced instead of failing forever', async () => {
+  const { connection, created } = makeConnection();
+  const gateway = strictGateway({
+    ops: { 'session.list': () => ({ items: [] }) },
+    streams: { 'workspace.follow': workspaceFeed([]) },
+  });
+  const ops = createOps({ gateway, config: makeConfig(), log: createMemoryLogger(), connection });
+
+  await ops.run('session.list', {});
+  created[0].dispose();
+  await ops.run('session.list', {});
+
+  assert.equal(created.length, 2);
+  assert.equal(gateway.calls.at(-1).peer, created[1]);
+});
+
+test('without a connection service the old no-Peer request shape is preserved', async () => {
+  // An older DSH has no `connection.createPeer` and its gateway does not look
+  // for a Peer. Sending no `peer` field is what keeps that build working.
+  const seen = [];
+  const legacy = {
+    async invoke(request) {
+      seen.push(request);
+      return { items: [] };
+    },
+    async stream(request) {
+      seen.push(request);
+      return workspaceFeed([])();
+    },
+  };
+  const ops = createOps({ gateway: legacy, config: makeConfig(), log: createMemoryLogger() });
+  await ops.run('session.list', {});
+
+  assert.equal(seen.length, 2);
+  assert.equal('peer' in seen[0], false);
+  assert.equal('peer' in seen[1], false);
+});
+
+test('dispose releases the Peer through the connection service', async () => {
+  const { connection, created } = makeConnection();
+  const gateway = strictGateway({
+    ops: { 'session.list': () => ({ items: [] }) },
+    streams: { 'workspace.follow': workspaceFeed([]) },
+  });
+  const ops = createOps({ gateway, config: makeConfig(), log: createMemoryLogger(), connection });
+
+  await ops.run('session.list', {});
+  ops.dispose();
+
+  assert.equal(created[0].disposed, true);
+  assert.equal(created[0].signal.aborted, true);
 });
 

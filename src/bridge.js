@@ -24,6 +24,35 @@ import {
   streamFrame,
 } from './protocol.js';
 
+/**
+ * Resolve a service without declaring a hard dependency.
+ *
+ * The bridge needs `connection` only on DSH 0.2+, where every gateway call must
+ * name a Peer. Resolution is lazy and every failure means "this build does not
+ * have that service", never a load-time exception.
+ */
+function serviceOf(ctx, name) {
+  if (!ctx) return null;
+  try {
+    if (typeof ctx.get === 'function') {
+      const value = ctx.get(name);
+      if (value) return value;
+    }
+  } catch {
+    /* no such service in this composition */
+  }
+  try {
+    if (ctx[name]) return ctx[name];
+  } catch {
+    /* access without inject throws */
+  }
+  try {
+    return ctx.root?.get?.(name) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function createBridge({
   ctx,
   config,
@@ -48,7 +77,13 @@ export function createBridge({
     now,
   });
 
-  const ops = createOps({ gateway: ctx?.typertGateway, config, log, harness });
+  const ops = createOps({
+    gateway: ctx?.typertGateway,
+    config,
+    log,
+    harness,
+    connection: () => serviceOf(ctx, 'connection'),
+  });
 
   const events = createEvents({ log });
   const debug = createDebugLog({ path: config.debugLog });
@@ -214,6 +249,7 @@ export function createBridge({
         log.debug(`disposer failed: ${error.message}`);
       }
     }
+    ops.dispose();
     attached = false;
   }
 

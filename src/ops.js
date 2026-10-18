@@ -63,9 +63,78 @@ export function wireArgs(entry, args) {
   return { [entry.param]: args ?? {} };
 }
 
-export function createOps({ gateway, config, log, harness = {} }) {
+export function createOps({ gateway, config, log, harness = {}, connection = null }) {
   const startedAt = Date.now();
   let gatewayFailureLogged = false;
+  let peer = null;
+
+  /**
+   * The in-process Peer this plugin's gateway calls speak for.
+   *
+   * DSH 0.2 changed `typertGateway.invoke`/`stream` from a direct Host API into
+   * the wire gateway: every request now carries a `PeerScope`, and the gateway
+   * reads `peer.signal` before dispatching. Without one the first call dies with
+   * `Cannot read properties of undefined (reading 'signal')` — which the phone
+   * sees as a `remote_error` on `session.list`.
+   *
+   * `ctx.connection.createPeer` is the documented way for a Host plugin to get
+   * an independent in-process Peer. It is resolved lazily through `ctx.get`
+   * because the service may not be active yet when the plugin loads, and old
+   * builds do not have it at all: there, no peer is added and the old direct
+   * gateway contract still works.
+   */
+  function connectionService() {
+    try {
+      return typeof connection === 'function' ? connection() : connection;
+    } catch (error) {
+      log.debug(`connection service unavailable: ${error.message}`);
+      return null;
+    }
+  }
+
+  function ownerPeer() {
+    if (peer !== null) {
+      // A disposed Peer can never speak again; a fresh one is cheaper than a
+      // permanently broken bridge if the connection service restarted.
+      const aborted = peer.signal?.aborted === true || peer.disposed === true;
+      if (!aborted) return peer;
+      peer = null;
+    }
+    const service = connectionService();
+    if (!service || typeof service.createPeer !== 'function') return null;
+    try {
+      peer = service.createPeer({ principal: { kind: 'owner' }, interactions: 'none' });
+      return peer;
+    } catch (error) {
+      log.warn(`could not create an in-process Peer: ${error.message}`);
+      return null;
+    }
+  }
+
+  /** A gateway request in the shape the running DSH understands. */
+  function gatewayRequest(entry, args, signal) {
+    const request = {
+      namespace: entry.namespace,
+      method: entry.method,
+      args,
+      signal,
+    };
+    const scope = ownerPeer();
+    if (scope !== null) request.peer = scope;
+    return request;
+  }
+
+  function dispose() {
+    const scope = peer;
+    peer = null;
+    if (scope === null) return;
+    try {
+      // Owning contexts dispose this too; `dispose()` is idempotent.
+      void scope.dispose?.();
+    } catch (error) {
+      log.debug(`peer dispose failed: ${error.message}`);
+    }
+  }
 
   /**
    * How long to wait for the Workspace baseline before giving up on it.
@@ -129,12 +198,9 @@ export function createOps({ gateway, config, log, harness = {} }) {
 
     let timer = null;
     try {
-      const iterable = await gateway.stream({
-        namespace: 'workspace',
-        method: 'follow',
-        args: {},
-        signal: controller.signal,
-      });
+      const iterable = await gateway.stream(
+        gatewayRequest({ namespace: 'workspace', method: 'follow' }, {}, controller.signal),
+      );
 
       const read = (async () => {
         for await (const frame of iterable) {
@@ -229,12 +295,9 @@ export function createOps({ gateway, config, log, harness = {} }) {
     delete forwarded.includeArchived;
 
     try {
-      const value = await gateway.invoke({
-        namespace: entry.namespace,
-        method: entry.method,
-        args: wireArgs(entry, forwarded),
-        signal,
-      });
+      const value = await gateway.invoke(
+        gatewayRequest(entry, wireArgs(entry, forwarded), signal),
+      );
       if (op !== 'session.list') return value;
 
       const listed = filterList(value);
@@ -278,17 +341,14 @@ export function createOps({ gateway, config, log, harness = {} }) {
     assertSessionAllowed(op, args);
 
     try {
-      const iterable = await gateway.stream({
-        namespace: entry.namespace,
-        method: entry.method,
-        args: wireArgs(entry, args),
-        signal,
-      });
+      const iterable = await gateway.stream(
+        gatewayRequest(entry, wireArgs(entry, args), signal),
+      );
       return iterable;
     } catch (error) {
       throw mapGatewayError(error, signal);
     }
   }
 
-  return { run, openStream, sessionAllowed, localInfo };
+  return { run, openStream, sessionAllowed, localInfo, dispose };
 }

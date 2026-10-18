@@ -162,6 +162,7 @@ profile patch 的 `config:` 与同名环境变量可二选一或并用（**环�
 | 闭码 `4400`：协议版本不一致 | 插件与中继的线协议版本不匹配 → 两端同时升级，不要靠放宽校验绕过 |
 | 每 ~30 秒固定重连一次 | 中继把插件的 `ping` 当非法帧（旧中继只认单向心跳）→ 升级中继 |
 | 设了 `tlsCaFile` 仍连不上 | 该 PEM 不是签发中继证书的 CA，或 DSH 进程读不到它。确认路径可读；退路是 `NODE_EXTRA_CA_CERTS=<PEM>` 并重启 DSH |
+| 手机列会话报 `remote_error: Cannot read properties of undefined (reading 'signal')` | DSH 0.2 把 `typertGateway.invoke/stream` 改成需要 `PeerScope` 的线上网关，旧插件没有传 Peer。升级插件后重启 DSH |
 | 改了 `src/` 但行为没变 | 必须重启 DSH（见「部署」第 4 步） |
 | `debugLog` 文件是空的 | 路径对 DSH 进程不可写，或 `debugLog` 没配；写入失败不会报错 |
 | 手机上仍显示已归档会话 | `hideArchivedSessions` 为 `false`、插件是旧版本（重启 DSH），或手机上的任务列表尚未刷新（重新打开抽屉即会刷新） |
@@ -172,7 +173,7 @@ profile patch 的 `config:` 与同名环境变量可二选一或并用（**环�
 
 ```bash
 cd /opt/dsh-remote-bridge
-node --test                      # 149 个用例，8 个测试文件
+node --test                      # 155 个用例，8 个测试文件
 node --test test/ops.test.js     # 单个文件
 npm test                         # 等价（零依赖，无需 npm install）
 ```
@@ -191,7 +192,7 @@ npm test                         # 等价（零依赖，无需 npm install）
 | `src/desktop-withdraw.js` | 手机先答时结算桌面那条待答请求，使桌面弹窗自行消失 |
 | `src/config.js` | 配置解析与校验（profile `config:` + `DSH_REMOTE_BRIDGE_*`） |
 | `src/log.js`、`src/debug-log.js` | 分级控制台日志；可选的诊断文件日志 |
-| `test/` | 8 个测试文件，149 个用例 |
+| `test/` | 8 个测试文件，155 个用例 |
 | `tools/simulate.mjs` | 用桩上下文把真实插件挂到真实中继上（脱离 DSH 联调 / 验收） |
 | `tools/fake-ctx.mjs` | 桩 `ctx` 与 WebSocket 替身，供测试与模拟器使用 |
 | [docs/PROTOCOL.md](docs/PROTOCOL.md) | 线协议、帧类型与 op 契约 |

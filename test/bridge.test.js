@@ -344,3 +344,45 @@ test('a slow unary op does not block later frames', async () => {
   const response = await waitForFrame(socket, (frame) => frame.t === 'res' && frame.id === 'r1');
   assert.equal(response.ok, true);
 });
+
+test('the bridge finds the connection service through ctx.get and names a Peer', async () => {
+  // This is the integration point the 0.2 fix depends on: ops resolves the
+  // service with `ctx.get('connection')`, not through a hard `inject`, so that
+  // older builds (which have neither) keep their original request shape.
+  const created = [];
+  const fake = createFakeCtx({
+    ops: { 'session.list': () => ({ items: [{ sessionId: 's1' }] }) },
+    streams: {
+      'workspace.follow': async function* () {
+        yield { type: 'baseline', value: { items: [], archivedSessionIds: [] } };
+      },
+    },
+  });
+  fake.ctx.get = (name) => {
+    if (name !== 'connection') return undefined;
+    return {
+      createPeer(options) {
+        const controller = new AbortController();
+        const peer = {
+          principal: options.principal,
+          interactions: options.interactions,
+          signal: controller.signal,
+          dispose() {
+            controller.abort(new Error('disposed'));
+          },
+        };
+        created.push(peer);
+        return peer;
+      },
+    };
+  };
+
+  const { socket } = await connected({ ctx: fake });
+  socket.deliver({ t: 'req', id: 'r1', op: 'session.list', args: {} });
+  const response = await waitForFrame(socket, (frame) => frame.t === 'res' && frame.id === 'r1');
+
+  assert.equal(response.ok, true);
+  assert.equal(created.length, 1);
+  assert.equal(fake.calls[0].peer, created[0]);
+  assert.deepEqual(created[0].principal, { kind: 'owner' });
+});
