@@ -30,6 +30,7 @@ test('every server frame type decodes', () => {
     { t: 'unsub', id: 's1' },
     { t: 'approval', askId: 'a1', decision: 'approved' },
     { t: 'ping', id: 'p1' },
+    { t: 'pong', id: 'p1' },
   ];
   for (const frame of frames) {
     const result = decode(encode(frame));

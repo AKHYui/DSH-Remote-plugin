@@ -131,6 +131,9 @@ const SERVER_FRAME_TYPES = new Set([
   'unsub',
   'approval',
   'ping',
+  // The relay answers the plugin's own heartbeat with `pong`. Ignoring it as an
+  // unknown frame is harmless but logs a warning every heartbeat interval.
+  'pong',
 ]);
 
 export class ProtocolError extends Error {
