@@ -60,7 +60,7 @@ export function apply(ctx, rawConfig = {}) {
     // app's version lives inside `app.asar` and is not visible from a plugin. The
     // wire field is called `harness.version` (hello frame + `harness.info`) for
     // historical reasons; docs/PROTOCOL.md says what it actually is.
-    harness: { version: '0.1.0', node: process.version, gateway: Boolean(ctx?.typertGateway) },
+    harness: { version: '0.1.1', node: process.version, gateway: Boolean(ctx?.typertGateway) },
   });
 
   bridge.start();

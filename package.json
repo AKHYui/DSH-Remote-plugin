@@ -1,6 +1,6 @@
 {
   "name": "dsh-remote-bridge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DeepSeek Harness plugin: an outbound bridge to a self-hosted relay so a mobile app can drive the desktop harness.",
   "type": "module",
   "main": "src/index.js",
